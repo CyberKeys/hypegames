@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hype Games</title><link rel="icon" href="data:,"><link rel="stylesheet" href="style.css"></head><body class="home">
+<div class="warn">⚠ Play only while parked. Never use while driving.</div>
+<header><h1>HYPE<span>GAMES</span></h1><div>Touch or controller 🎮</div></header>
+<main><div class="grid">
+<a class="card" href="games/drive.html"><img src="thumbs/drive.jpg" alt=""><div>Hype Drive 3D<small>Low-poly lane racer · levels · boosts</small></div></a>
+<a class="card" href="games/platformer.html"><img src="thumbs/platformer.jpg" alt=""><div>Hype Hopper<small>Platformer · 5 levels · enemies</small></div></a>
+<a class="card" href="games/shooter.html"><img src="thumbs/shooter.jpg" alt=""><div>Hype Squadron<small>Arcade shooter · power-ups · bosses</small></div></a>
+<a class="card" href="games/sandbox.html"><img src="thumbs/sandbox.jpg" alt=""><div>Physics Lab<small>Sandbox · cars, ropes, bombs, sand</small></div></a>
+</div><p id="best" style="color:#99a;font-size:18px"></p></main>
+<footer>Hype Games is independent and not affiliated with, endorsed or sponsored by any vehicle manufacturer. All games original; art by Kenney (CC0). Play only while parked.</footer>
+<script src="common.js"></script><script>
+document.getElementById('best').textContent='Your bests: Drive '+HG.best('drive')+' · Hopper '+HG.best('platformer')+' · Squadron '+HG.best('shooter');
+const cards=[...document.querySelectorAll('.card')];let i=0;const sel=()=>cards.forEach((c,j)=>c.classList.toggle('sel',j==i));sel();
+HG.onPress=k=>{if(k=='right'||k=='down')i=(i+1)%cards.length;if(k=='left'||k=='up')i=(i+cards.length-1)%cards.length;if(k=='a')location=cards[i].href;sel()};
+HG.togglePause=()=>{};
+</script></body></html>

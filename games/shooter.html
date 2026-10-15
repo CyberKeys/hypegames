@@ -1,0 +1,66 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hype Squadron</title><link rel="icon" href="data:,"><link rel="stylesheet" href="../style.css"></head><body class="shmup">
+<script src="../common.js"></script><script>HG.chrome('Hype Squadron')</script><script src="../vendor/phaser.min.js"></script>
+<script>
+const st=document.getElementById('stage');const HUD=document.createElement('div');HUD.className='hud px';st.appendChild(HUD);const BAN=document.createElement('div');BAN.className='hud';BAN.style.cssText='top:35%;left:0;right:0;text-align:center;font-size:48px';st.appendChild(BAN);
+const VW=560,VH=480; // logical playfield, scaled to fit
+class Play extends Phaser.Scene{constructor(){super('play')}
+ preload(){this.load.spritesheet('sh','../assets/shooter/ships.png',{frameWidth:32,frameHeight:32});this.load.spritesheet('t','../assets/shooter/tiles.png',{frameWidth:16,frameHeight:16})}
+ create(){
+  if(!this.textures.exists('neb')){const c=document.createElement('canvas');c.width=VW;c.height=VH*2;const x=c.getContext('2d');x.fillStyle='#070818';x.fillRect(0,0,VW,VH*2);
+   for(let i=0;i<14;i++){const gx=Math.random()*VW,gy=Math.random()*VH*2,r=80+Math.random()*160,g=x.createRadialGradient(gx,gy,0,gx,gy,r),col=['rgba(180,60,255,','rgba(43,217,255,','rgba(255,61,110,'][i%3];g.addColorStop(0,col+'.28)');g.addColorStop(1,col+'0)');for(const oy of[-VH*2,0,VH*2]){x.save();x.translate(0,oy);x.fillStyle=g;x.fillRect(0,-oy,VW,VH*2);x.restore()}}
+   for(let k=0;k<2;k++){const sc=document.createElement('canvas');sc.width=VW;sc.height=VH;const y=sc.getContext('2d');for(let i=0;i<(k?40:120);i++){y.fillStyle=k?'#fff':'rgba(200,220,255,.6)';const z=k?2:1;y.fillRect(Math.random()*VW|0,Math.random()*VH|0,z,z)}this.textures.addCanvas('stars'+k,sc)}
+   this.textures.addCanvas('neb',c);
+   const SHIP=['.......w.......','......wbw......','......wbw......','.....wbcbw.....','.....wbcbw.....','..r..wbbbw..r..','..r.wbbwbbw.r..','.wwwwbbwbbwwww.','wbbbbbbwbbbbbbw','wbbbbwwwwwbbbbw','.ww.wyy.yyw.ww.','.....y...y.....'];
+   const sh=HG.pix(SHIP,{w:'#eaf6ff',b:'#2bd9ff',c:'#ffffff',r:'#ff3d6e',y:'#ffd23f'},2);this.textures.addCanvas('hero',sh)}
+  this.bg=this.add.tileSprite(0,0,VW,VH,'neb').setOrigin(0);this.s0=this.add.tileSprite(0,0,VW,VH,'stars0').setOrigin(0);this.s1=this.add.tileSprite(0,0,VW,VH,'stars1').setOrigin(0);
+  this.deco=this.add.group();
+  if(!this.anims.exists('boom'))this.anims.create({key:'boom',frames:this.anims.generateFrameNumbers('t',{frames:[4,5,6,7,8]}),frameRate:18});
+  this.p=this.physics.add.sprite(VW/2,VH-60,'hero');this.trail=this.add.particles(0,0,'t',{frame:9,lifespan:250,speedY:{min:80,max:140},scale:{start:.6,end:0},tint:[0x2bd9ff,0xffd23f],follow:null,frequency:30});this.p.setCollideWorldBounds(true).body.setSize(18,18);
+  this.pb=this.physics.add.group();this.eb=this.physics.add.group();this.en=this.physics.add.group();this.pu=this.physics.add.group();
+  this.lvl=1;this.score=0;this.hp=5;this.gun=1;this.shield=0;this.fireT=0;this.wave=0;this.boss=null;this.waveT=1;this.inv=0;this.over=false;
+  this.physics.add.overlap(this.pb,this.en,(b,e)=>{b.destroy();e.hp--;e.setTintFill(0xffffff);this.time.delayedCall(50,()=>e.active&&e.clearTint());if(e.hp<=0)this.kill(e)});
+  this.physics.add.overlap(this.p,this.eb,(p,b)=>{b.destroy();this.hurt()});this.physics.add.overlap(this.p,this.en,(p,e)=>{if(e!=this.boss)this.kill(e);this.hurt()});
+  this.physics.add.overlap(this.p,this.pu,(p,u)=>{const k=u.kind;u.destroy();HG.sfx('power');if(k=='hp')this.hp=Math.min(8,this.hp+1);if(k=='gun')this.gun=Math.min(4,this.gun+1);if(k=='sh')this.shield=6;this.score+=25});
+  this.sparks=this.add.particles(0,0,'t',{frame:9,lifespan:400,speed:{min:40,max:180},scale:{start:1,end:0},emitting:false});
+  this.ring=this.add.circle(0,0,22,0x33ccff,.25).setStrokeStyle(2,0x66ddff).setVisible(false);
+  this.fit();this.scale.on('resize',()=>this.fit());this.demo=HG.qs.has('demo');
+  // Touch: drag anywhere to steer (relative), ship auto-fires
+  this.input.on('pointermove',p=>{if(p.isDown&&!this.over){this.p.x+= (p.x-p.prevPosition.x)/this.cameras.main.zoom*1.4;this.p.y+=(p.y-p.prevPosition.y)/this.cameras.main.zoom*1.4}});
+  HG.onPress=k=>{if(this.over&&k=='a')this.scene.restart()};HG.onPause=v=>v?this.scene.pause():this.scene.resume();
+  this.msg('LEVEL 1')}
+ fit(){const c=this.cameras.main,z=Math.min(this.scale.width/VW,this.scale.height/VH);c.setZoom(z);c.centerOn(VW/2,VH/2);this.physics.world.setBounds(0,0,VW,VH)}
+ msg(t,ms=1400){BAN.innerHTML=t;if(ms)this.time.delayedCall(ms,()=>{if(BAN.innerHTML==t)BAN.innerHTML=''})}
+ spawnWave(){this.wave++;if(this.wave%5==0)return this.spawnBoss();const n=Math.min(9,3+this.lvl+(this.wave>2?1:0)),pat=this.wave%3,f=[5,6,7,9,10,11][(this.lvl+this.wave)%6];
+  for(let i=0;i<n;i++){const e=this.en.create(pat==1?40+i*(VW-80)/(n-1):VW/2,-30-i*36,'sh',f);e.setFlipY(true).setScale(1.4).setTint([0xff5a8a,0xb46bff,0xffa04d,0x6dff9e][(this.lvl+this.wave)%4]);e.hp=1+(this.lvl>2?1:0);e.pts=20;e.pat=pat;e.ph=i;e.t=0;e.fire=1+Math.random()*2;e.setVelocityY(60+this.lvl*8)}}
+ spawnBoss(){const b=this.en.create(VW/2,-60,'sh',12+(this.lvl-1)%4);b.setScale(3).setFlipY(true);b.body.setSize(28,20);b.hp=b.max=40+this.lvl*25;b.pts=1000;b.boss=true;b.t=0;b.fire=1;this.boss=b;HG.sfx('level');this.msg('⚠ BOSS ⚠',1500)}
+ kill(e){this.score+=e.pts;this.sparks.explode(e.boss?60:10,e.x,e.y);if(e.boss){this.cameras.main.shake(500,.02);this.cameras.main.flash(200,255,255,255);this.stop(200)}else{this.cameras.main.shake(60,.004);this.stop(25)}const cam=this.cameras.main;HG.popText((e.x-cam.worldView.x)*cam.zoom,(e.y-cam.worldView.y)*cam.zoom,'+'+e.pts,'#ffe066',e.boss?40:20);const x=this.add.sprite(e.x,e.y,'t',4).setScale(e.boss?4:1.5).play('boom');x.on('animationcomplete',()=>x.destroy());HG.sfx('boom');
+  if(Math.random()<(e.boss?1:.12)){const k=['gun','hp','sh'][Math.random()*3|0],u=this.pu.create(e.x,e.y,'t',{gun:25,hp:24,sh:26}[k]);u.kind=k;u.setVelocityY(70)}
+  if(e.boss){this.boss=null;this.lvl++;this.msg('LEVEL '+this.lvl);HG.save('shooter',this.score);HG.set('shooter_lvl',Math.max(HG.get('shooter_lvl',1),this.lvl))}e.destroy()}
+ stop(ms){this.physics.world.pause();this.time.delayedCall(ms,()=>this.physics.world.resume())}
+ hurt(){if(this.inv>0||this.over)return;if(this.shield>0){this.shield=0;HG.sfx('pop');this.inv=.5;return}this.hp--;this.inv=1.2;this.gun=Math.max(1,this.gun-1);HG.sfx('hit');this.cameras.main.shake(220,.015);this.cameras.main.flash(100,255,40,80);this.stop(90);
+  if(this.hp<=0){this.over=true;HG.save('shooter',this.score);this.p.setVisible(false);this.msg('GAME OVER<br><small>Tap or press A</small>',0);this.input.once('pointerdown',()=>this.scene.restart())}}
+ update(t,dtm){const dt=dtm/1000;this.bg.tilePositionY-=dt*8;this.s0.tilePositionY-=dt*30;this.s1.tilePositionY-=dt*90;
+  if(this.over)return;const p=this.p,sp=220;let vx=(HG.held('left')?-1:0)+(HG.held('right')?1:0),vy=(HG.held('up')?-1:0)+(HG.held('down')?1:0);
+  if(HG.axes[0]||HG.axes[1]){vx=HG.axes[0];vy=HG.axes[1]}
+  if(this.demo){const tgt=this.en.getChildren()[0];vx=tgt?Math.sign(tgt.x-p.x)*.6:0}
+  this.trail.setPosition(this.p.x,this.p.y+14);const tvx=vx*sp,tvy=vy*sp;p.setVelocity(p.body.velocity.x+(tvx-p.body.velocity.x)*.3,p.body.velocity.y+(tvy-p.body.velocity.y)*.3);p.setAngle(p.body.velocity.x*.04);
+  this.fireT-=dt;if(this.fireT<=0){this.fireT=.16;HG.sfx('shoot');const offs=[[0],[-6,6],[-10,0,10],[-12,-4,4,12]][this.gun-1];offs.forEach((o,i)=>{const b=this.pb.create(p.x+o,p.y-14,'t',this.gun>2?1:0).setScale(1.4);b.setVelocity((o)*4*(this.gun>2?1:0),-480)})}
+  this.inv-=dt;this.shield-=dt;p.setAlpha(this.inv>0&&Math.floor(t/80)%2?.3:1);this.ring.setPosition(p.x,p.y).setVisible(this.shield>0);
+  this.waveT-=dt;if(this.waveT<=0&&!this.boss&&this.en.countActive()<3){this.spawnWave();this.waveT=2.5}
+  this.en.getChildren().forEach(e=>{e.t+=dt;
+   if(e.boss){if(e.y<90)e.setVelocityY(40);else{e.setVelocityY(0);e.x=VW/2+Math.sin(e.t*.8)*110}
+    const ph=Math.floor(e.t/6)%4,shot=(ang,spd,tint=0xff4f7a)=>{const b=this.eb.create(e.x,e.y+30,'t',3).setTint(tint).setScale(1.3);b.setVelocity(Math.cos(ang)*spd,Math.sin(ang)*spd)};e.fire-=dt;
+    if(e.hp<e.max*.5&&!e.enraged){e.enraged=true;e.setTint(0xff8080);this.cameras.main.shake(300,.01);this.msg('ENRAGED!',900)}const rate=e.enraged?.7:1;
+    if(ph==0&&e.fire<=0){e.fire=.9*rate;const n=7+this.lvl;for(let i=0;i<n;i++)shot(Math.PI/2+(i-(n-1)/2)*.2+Math.sin(e.t)*.3,150)}
+    if(ph==1&&e.fire<=0){e.fire=.09*rate;shot(e.t*4,130,0xffd23f);shot(e.t*4+Math.PI,130,0xffd23f)}
+    if(ph==2&&e.fire<=0){e.fire=.6*rate;const a=Phaser.Math.Angle.Between(e.x,e.y,this.p.x,this.p.y);for(let i=-2;i<=2;i++)shot(a+i*.08,230,0x2bd9ff)}
+    if(ph==3&&e.fire<=0){e.fire=1.4*rate;for(let i=0;i<20;i++)shot(i/20*Math.PI*2+e.t,110,0xb46bff);if(this.en.countActive()<6)for(let i=-1;i<=1;i+=2){const m=this.en.create(e.x+i*50,e.y,'sh',9).setFlipY(true).setTint(0xff5a8a);m.hp=1;m.pts=20;m.pat=2;m.ph=i;m.t=0;m.fire=2;m.setVelocityY(90)}}}
+   else{if(e.pat==0)e.x=VW/2+Math.sin(e.t*2+e.ph)*120;if(e.pat==2)e.setVelocityX(Math.cos(e.t*3+e.ph)*90);
+    e.fire-=dt;if(e.fire<=0&&e.y>0){e.fire=2.5-Math.min(1.5,this.lvl*.2);const a=Phaser.Math.Angle.Between(e.x,e.y,p.x,p.y),b=this.eb.create(e.x,e.y+10,'t',3).setTint(0xff4f7a).setScale(1.3);b.setVelocity(Math.cos(a)*140,Math.sin(a)*140)}
+    if(e.y>VH+40)e.destroy()}});
+  [this.pb,this.eb,this.pu].forEach(g=>g.getChildren().forEach(b=>{if(b.y<-20||b.y>VH+20||b.x<-20||b.x>VW+20)b.destroy()}));
+  const bh=this.boss?` · BOSS ${'█'.repeat(Math.ceil(this.boss.hp/this.boss.max*10))}`:'';
+  HUD.innerHTML=`STAGE ${this.lvl}<br>${'♥'.repeat(Math.max(0,this.hp))}<br>GUN ${'▮'.repeat(this.gun)}${this.shield>0?'<br>SHIELD':''}<br>${String(this.score).padStart(6,'0')}${bh?'<br>'+bh.replace(' · ',''):''}<br><small>BEST ${HG.best('shooter')}</small>`}}
+HG.music({bpm:150,root:50,scale:[0,2,3,5,7,8,10],lead:[0,3,7,10,7,3,5,7,0,3,7,12,10,8,7,null],bass:[0,0,0,0,5,5,3,3],drums:1,wave:'square'});HG.title({name:'HYPE SQUADRON',sub:'Clear the waves. Grab power-ups. Take down the boss every 5th wave.',ctl:['Drag / stick: fly','Auto-fire','Start: pause'],c1:'#3a1a6e',c2:'#05060f',c3:'#b4329a',game:'shooter'}).then(()=>new Phaser.Game({type:Phaser.AUTO,parent:'stage',pixelArt:true,width:st.clientWidth,height:st.clientHeight,backgroundColor:'rgba(0,0,0,0)',transparent:true,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade'},scene:[Play],banner:false}));
+HG.touchButtons([]);
+</script></body></html>

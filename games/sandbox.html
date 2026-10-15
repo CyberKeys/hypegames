@@ -1,0 +1,86 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hype Physics Lab</title><link rel="icon" href="data:,"><link rel="stylesheet" href="../style.css">
+<style>#world{background:radial-gradient(circle at 50% 0,#26304a,#121624 70%),#121624}#world canvas{background:repeating-linear-gradient(0deg,transparent 0 47px,rgba(255,255,255,.04) 47px 48px),repeating-linear-gradient(90deg,transparent 0 47px,rgba(255,255,255,.04) 47px 48px)}#tools{position:absolute;left:0;top:0;bottom:0;width:240px;background:#12151d;display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:4px;padding:6px;overflow-y:auto;z-index:6}
+#tools button{font-family:Bungee;font-size:13px;box-shadow:0 3px 0 #0b0d12;padding:6px 4px;min-height:46px;border-radius:12px;border:3px solid transparent;background:#262c3c;color:#fff}#tools button.on{border-color:#ff3d6e}#tools button.sel{outline:3px solid #fff}
+#tools h4{grid-column:1/3;margin:6px 0 0;font-size:14px;color:#99a;text-align:center}#world{position:absolute;left:240px;right:0;top:0;bottom:0}
+#cur{position:absolute;width:34px;height:34px;margin:-17px 0 0 -17px;border:3px solid #ff3d6e;border-radius:50%;pointer-events:none;z-index:7;display:none}</style></head><body>
+<script src="../common.js"></script><script>HG.chrome('Hype Physics Lab')</script><script src="../vendor/matter.min.js"></script>
+<script>
+const st=document.getElementById('stage');st.insertAdjacentHTML('beforeend','<div id="tools"></div><div id="world"></div><div id="cur"></div>');
+const HUD=document.createElement('div');HUD.className='hud';HUD.style.left='256px';st.appendChild(HUD);
+const {Engine,Render,Runner,Bodies,Body,Composite,Composites,Constraint,Mouse,MouseConstraint,Events,Query,Vector}=Matter;
+const wd=document.getElementById('world');let W=wd.clientWidth,H=wd.clientHeight;
+const engine=Engine.create({enableSleeping:true});engine.positionIterations=6;engine.velocityIterations=4;const world=engine.world;
+const render=Render.create({element:wd,engine,options:{width:W,height:H,wireframes:false,background:'transparent',pixelRatio:1}});
+Render.run(render);const runner=Runner.create();Runner.run(runner,engine);
+const MAX=260;let tool='box',grav=1,sandCount=0;
+const crate={sprite:{texture:'../assets/platformer/crate.png',xScale:1,yScale:1}};
+const col=()=>['#ff3d6e','#ffd400','#22d3ee','#22c55e','#a855f7','#f97316'][Math.random()*6|0];
+function walls(){const o={isStatic:true,render:{fillStyle:'#2b3245'},label:'wall'};return[Bodies.rectangle(W/2,H+30,W*2,60,o),Bodies.rectangle(-30,H/2,60,H*3,o),Bodies.rectangle(W+30,H/2,60,H*3,o),Bodies.rectangle(W/2,-400,W*2,60,o)]}
+function count(){return Composite.allBodies(world).length}
+const make={
+ box:(x,y)=>Bodies.rectangle(x,y,36,36,{render:crate,restitution:.1,friction:.6,label:'box'}),
+ ball:(x,y)=>Bodies.circle(x,y,18+Math.random()*12,{restitution:.75,render:{fillStyle:col()},label:'ball'}),
+ ramp:(x,y)=>Bodies.rectangle(x,y,220,16,{isStatic:true,angle:-.35,render:{fillStyle:'#8b5a2b'},label:'ramp'}),
+ plank:(x,y)=>Bodies.rectangle(x,y,160,14,{render:{fillStyle:'#c08040'},label:'plank'}),
+ car:(x,y)=>{const g=Body.nextGroup(true),c=Composite.create({label:'car'}),b=Bodies.rectangle(x,y,110,24,{collisionFilter:{group:g},render:{fillStyle:'#ff3d6e'},chamfer:{radius:10},density:.002}),
+  w1=Bodies.circle(x-38,y+18,16,{collisionFilter:{group:g},friction:.9,render:{fillStyle:'#222',strokeStyle:'#ddd',lineWidth:3}}),w2=Bodies.circle(x+38,y+18,16,{collisionFilter:{group:g},friction:.9,render:{fillStyle:'#222',strokeStyle:'#ddd',lineWidth:3}});
+  Composite.add(c,[b,w1,w2,Constraint.create({bodyA:b,pointA:{x:-38,y:18},bodyB:w1,stiffness:.5,length:0,render:{visible:false}}),Constraint.create({bodyA:b,pointA:{x:38,y:18},bodyB:w2,stiffness:.5,length:0,render:{visible:false}})]);c.wheels=[w1,w2];cars.push(c);return c},
+ rope:(x,y)=>{const g=Body.nextGroup(true),r=Composites.stack(x,y,10,1,4,4,(xx,yy)=>Bodies.rectangle(xx,yy,22,8,{collisionFilter:{group:g},render:{fillStyle:'#e5c07b'},density:.002}));
+  Composites.chain(r,.5,0,-.5,0,{stiffness:.9,length:2,render:{strokeStyle:'#e5c07b'}});Composite.add(r,Constraint.create({bodyB:r.bodies[0],pointB:{x:-11,y:0},pointA:{x,y},stiffness:.9,length:2}));
+  const end=Bodies.rectangle(x+260,y,36,36,{render:crate});Composite.add(r,[end,Constraint.create({bodyA:r.bodies[r.bodies.length-1],pointA:{x:11,y:0},bodyB:end,stiffness:.9,length:4})]);return r},
+ bomb:(x,y)=>{if(bombsLeft<=0){banner('No bombs left!',900);return Composite.create()}bombsLeft--;const b=Bodies.circle(x,y,16,{render:{fillStyle:'#111',strokeStyle:'#ff3d6e',lineWidth:4},label:'bomb'});b.fuse=2.2;bombs.push(b);return b},
+ sand:(x,y)=>{const out=[];for(let i=0;i<24&&count()+out.length<MAX;i++)out.push(Bodies.circle(x+(Math.random()-.5)*60,y+(Math.random()-.5)*40,5,{friction:.3,frictionStatic:.8,restitution:0,render:{fillStyle:Math.random()<.5?'#e8c872':'#d4a94f'},label:'sand',density:.0008}));return out},
+ water:(x,y)=>{const out=[];for(let i=0;i<20&&count()+out.length<MAX;i++)out.push(Bodies.circle(x+(Math.random()-.5)*50,y+(Math.random()-.5)*30,6,{friction:0,frictionAir:.01,restitution:.2,render:{fillStyle:'rgba(56,189,248,.8)'},label:'water',density:.0006}));return out}};
+let cars=[],bombs=[];
+function add(t,x,y){if(count()>=MAX){HUD.innerHTML='Object limit reached: Clear to add more';return}const o=make[t](x,y);Composite.add(world,o);HG.sfx('pop')}
+function explode(b){const p=b.position;Composite.allBodies(world).forEach(o=>{if(o.isStatic||o==b)return;const d=Vector.sub(o.position,p),l=Vector.magnitude(d);if(l<220&&l>0){Matter.Sleeping.set(o,false);Body.applyForce(o,o.position,Vector.mult(Vector.normalise(d),.06*o.mass*(1-l/220)*3))}});
+ Composite.remove(world,b);bombs=bombs.filter(x=>x!=b);HG.sfx('boom');flash={x:p.x,y:p.y,t:.25};emit(p.x,p.y,60,['#ffd23f','#ff7a1a','#ff3d6e','#fff'],12,.9,.15,5);emit(p.x,p.y,25,['#3a3f50','#565c70'],5,1.4,-.05,10);shake=12}let shake=0;
+let flash=null;const parts=[];function emit(x,y,n,cols,sp=6,life=.8,g=.25,sz=4){for(let i=0;i<n;i++){const a=Math.random()*6.28,v=Math.random()*sp;parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-sp*.3,l:life*(0.5+Math.random()*.5),m:life,c:cols[i%cols.length],g,sz:sz*(0.5+Math.random())})}if(parts.length>500)parts.splice(0,parts.length-500)}
+Events.on(engine,'collisionStart',e=>{for(const p of e.pairs){const v=Vector.magnitude(Vector.sub(p.bodyA.velocity,p.bodyB.velocity));if(v>9&&!(p.bodyA.label=='sand'||p.bodyB.label=='sand'||p.bodyA.label=='water'||p.bodyB.label=='water')){const c=p.collision.supports[0];if(c){emit(c.x,c.y,6,['#cfd6e6','#8b93a8'],3,.5,.05,3);if(v>14)HG.sfx('click')}}}});
+function clearAll(){goal=null;chZone=null;chName=null;bombsLeft=Infinity;Composite.clear(world,false);cars=[];bombs=[];Composite.add(world,walls());Composite.add(world,mc)}
+const presets={
+ Dominoes(){for(let i=0;i<14;i++)Composite.add(world,Bodies.rectangle(200+i*55,H-60,14,90,{render:{fillStyle:col()},friction:.4}));Composite.add(world,[Bodies.circle(120,H-300,26,{restitution:.3,density:.01,render:{fillStyle:'#ffd400'}}),Bodies.rectangle(150,H-200,240,14,{isStatic:true,angle:.5,render:{fillStyle:'#8b5a2b'}})])},
+ Tower(){Composite.add(world,Composites.pyramid(W/2-250,H-420,14,12,0,0,(x,y)=>Bodies.rectangle(x,y,36,36,{render:crate})));add('bomb',W/2,H-480)},
+ 'Car Jump'(){Composite.add(world,[Bodies.rectangle(260,H-120,420,16,{isStatic:true,angle:.25,render:{fillStyle:'#8b5a2b'}}),Bodies.rectangle(W-280,H-60,200,16,{isStatic:true,angle:-.3,render:{fillStyle:'#8b5a2b'}})]);add('car',120,H-260);for(let i=0;i<6;i++)add('box',W-140,H-40-i*38)},
+ Bridge(){const g=Body.nextGroup(true),br=Composites.stack(160,H*.45,14,1,0,0,(x,y)=>Bodies.rectangle(x,y,50,16,{collisionFilter:{group:g},render:{fillStyle:'#c08040'},density:.004}));Composites.chain(br,.45,0,-.45,0,{stiffness:.95,length:0,render:{visible:false}});
+  Composite.add(br,[Constraint.create({pointA:{x:150,y:H*.45},bodyB:br.bodies[0],pointB:{x:-25,y:0},length:2,stiffness:.9}),Constraint.create({pointA:{x:150+14*50+10,y:H*.45},bodyB:br.bodies[13],pointB:{x:25,y:0},length:2,stiffness:.9})]);Composite.add(world,br);
+  for(let i=0;i<8;i++)add('ball',250+i*70,H*.2);add('sand',500,H*.1)}};
+let goal=null;const done=HG.get('lab_done',{});
+const CH={'Hoop Shot':{tip:'Throw a ball into the hoop!',setup(){setTool('ball');const o={isStatic:true,render:{fillStyle:'#ff3d6e'}};Composite.add(world,[Bodies.rectangle(W-160,H*.45,10,90,o),Bodies.rectangle(W-60,H*.45,10,90,o),Bodies.rectangle(W-110,H*.45+45,110,10,o),Bodies.rectangle(W-110,H*.45+150,16,200,{isStatic:true,render:{fillStyle:'#3a4258'}})]);return{x:W-155,y:H*.45-40,w:90,h:80}},check:z=>Composite.allBodies(world).some(b=>b.label=='ball'&&inZ(b,z))},
+ 'Demolition':{tip:'Knock every crate off the tower (2 bombs)',bombs:2,setup(){const py=H*.6;Composite.add(world,Bodies.rectangle(W/2+150,py,260,20,{isStatic:true,render:{fillStyle:'#3a4258'}}));Composite.add(world,Composites.stack(W/2+50,py-10-36*6,5,6,0,0,(x,y)=>Bodies.rectangle(x,y,36,36,{render:crate,label:'box'})));setTool('bomb');return{x:W/2+20,y:0,w:260,h:py-10,inv:true}},check:z=>!Composite.allBodies(world).some(b=>b.label=='box'&&inZ(b,z))},
+ 'Car Delivery':{tip:'Build ramps/planks so the car reaches the flag',setup(){const o={isStatic:true,render:{fillStyle:'#3a4258'}};Composite.add(world,[Bodies.rectangle(160,H-150,320,20,o),Bodies.rectangle(W-140,H-150,280,20,o)]);add('car',80,H-200);setTool('plank');return{x:W-120,y:H-260,w:100,h:110}},check:z=>cars.some(c=>inZ(c.bodies[0],z))}};
+const inZ=(b,z)=>b.position.x>z.x&&b.position.x<z.x+z.w&&b.position.y>z.y&&b.position.y<z.y+z.h;
+let chName=null,chZone=null,bombsLeft=Infinity;
+function drawGoal(c){if(!chZone)return;c.save();c.setLineDash([10,8]);c.lineWidth=3;c.strokeStyle=goal.won?'#22c55e':'#ffd23f';c.strokeRect(chZone.x,chZone.y,chZone.w,chZone.h);c.font='18px Bungee';c.fillStyle=c.strokeStyle;c.fillText(goal.won?'COMPLETE!':'GOAL',chZone.x+6,chZone.y+22);c.restore()}
+function startCh(n){clearAll();chName=n;const ch=CH[n];goal={won:false};bombsLeft=ch.bombs||Infinity;chZone=ch.setup();HG.sfx('level');banner(n.toUpperCase()+'<br><small>'+ch.tip+'</small>',2200)}
+function banner(t,ms){BN.innerHTML=t;BN.style.display='block';clearTimeout(BN.t);if(ms)BN.t=setTimeout(()=>BN.style.display='none',ms)}
+const BN=document.createElement('div');BN.className='hud';BN.style.cssText='top:35%;left:240px;right:0;text-align:center;font-size:44px;display:none;background:none;border:0';st.appendChild(BN);
+setInterval(()=>{if(goal&&!goal.won&&CH[chName].check(chZone)){goal.won=true;done[chName]=1;HG.set('lab_done',done);HG.sfx('level');emit(chZone.x+chZone.w/2,chZone.y,120,['#ff3d6e','#ffd23f','#22d3ee','#22c55e','#a855f7'],10,2,.15,5);banner('CHALLENGE COMPLETE! ★',2500);refreshCh()}},300);
+const mouse=Mouse.create(render.canvas),mc=MouseConstraint.create(engine,{mouse,constraint:{stiffness:.2,render:{visible:false}}});render.mouse=mouse;
+Events.on(mc,'mousedown',e=>{const p=e.mouse.position;if(!Query.point(Composite.allBodies(world).filter(b=>!b.isStatic||b.label=='ramp'),p).length)add(tool,p.x,p.y)});
+// toolbar
+const tl=document.getElementById('tools'),TOOLS={box:'📦 Box',ball:'⚽ Ball',plank:'🪵 Plank',ramp:'📐 Ramp',car:'🚗 Car',rope:'🪢 Rope',bomb:'💣 Bomb',sand:'⏳ Sand',water:'💧 Water'};
+const btns=[];for(const k in TOOLS){const b=document.createElement('button');b.textContent=TOOLS[k];b.onclick=()=>setTool(k);b.dataset.t=k;tl.appendChild(b);btns.push(b)}
+tl.insertAdjacentHTML('beforeend','<h4>WORLD</h4>');
+const act=(l,f)=>{const b=document.createElement('button');b.textContent=l;b.onclick=f;tl.appendChild(b);btns.push(b);return b};
+const gb=act('🌍 Gravity: On',()=>{grav=grav==1?0:grav==0?-1:1;engine.gravity.y=grav;gb.textContent='🌍 Gravity: '+({1:'On',0:'Zero','-1':'Flip'})[grav];Composite.allBodies(world).forEach(b=>Matter.Sleeping.set(b,false))});
+act('🧹 Clear',()=>clearAll());tl.insertAdjacentHTML('beforeend','<h4>CHALLENGES</h4>');const chB={};for(const k in CH)chB[k]=act('',()=>startCh(k));const refreshCh=()=>{for(const k in CH)chB[k].textContent=(done[k]?'★ ':'☆ ')+k};refreshCh();tl.insertAdjacentHTML('beforeend','<h4>SCENES</h4>');for(const k in presets)act('▶ '+k,()=>{clearAll();presets[k]();HG.set('lab_scene',k)});
+function setTool(k){tool=k;btns.forEach(b=>b.classList.toggle('on',b.dataset.t==k));HG.sfx('click')}setTool('box');
+// gamepad cursor: stick moves cursor, A spawns/grabs, B cycles tool, D-pad up/down navigates toolbar with LB
+const cur=document.getElementById('cur');let cx=W/2,cy=H/2,grab=null,gpUsed=false,ti=0;
+HG.onPress=k=>{if(k=='b'){ti=(ti+1)%btns.length;btns.forEach((b,i)=>b.classList.toggle('sel',i==ti));const b=btns[ti];if(b.dataset.t)setTool(b.dataset.t)}
+ if(k=='a'&&gpUsed){const sel=btns[ti];const hit=Query.point(Composite.allBodies(world).filter(b=>!b.isStatic),{x:cx,y:cy})[0];if(hit){grab=Constraint.create({pointA:{x:cx,y:cy},bodyB:hit,pointB:Vector.sub({x:cx,y:cy},hit.position),stiffness:.2,render:{visible:false}});Composite.add(world,grab)}else add(tool,cx,cy)}
+ if(k=='up'&&!gpUsed){} };
+HG.onPause=v=>{runner.enabled=!v};
+Events.on(engine,'beforeUpdate',()=>{const dt=1/60;const[ax,ay]=HG.axes;if(ax||ay){gpUsed=true;cur.style.display='block';cx=Math.max(0,Math.min(W,cx+ax*9));cy=Math.max(0,Math.min(H,cy+ay*9))}
+ if(HG.held('left')){gpUsed=true;cur.style.display='block';cx-=7}if(HG.held('right')){gpUsed=true;cur.style.display='block';cx+=7}
+ cur.style.left=(240+cx)+'px';cur.style.top=cy+'px';if(grab){grab.pointA={x:cx,y:cy};if(!HG.pad.a&&!HG.keys.a){Composite.remove(world,grab);grab=null}}
+ bombs.slice().forEach(b=>{b.fuse-=dt;b.render.strokeStyle=Math.floor(b.fuse*8)%2?'#ff3d6e':'#ffd400';if(b.fuse<=0)explode(b)});
+ cars.forEach(c=>c.wheels.forEach(w=>Body.setAngularVelocity(w,Math.min(.35,w.angularVelocity+.02))));
+ Composite.allBodies(world).forEach(b=>{if(b.position.y>H+300||b.position.y<-800)Composite.remove(world,b)});
+ HUD.innerHTML=`${TOOLS[tool]} &nbsp; <small>${count()}/${MAX} objects${bombsLeft<Infinity?' · bombs left '+bombsLeft:''}${chName?' · '+CH[chName].tip:' · tap to add, drag to throw'}</small>`});
+Events.on(render,'afterRender',()=>{const cx2=render.context;for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.l-=1/60;if(q.l<=0){parts.splice(i,1);continue}q.vy+=q.g;q.x+=q.vx;q.y+=q.vy;cx2.globalAlpha=q.l/q.m;cx2.fillStyle=q.c;cx2.beginPath();cx2.arc(q.x,q.y,q.sz,0,7);cx2.fill()}cx2.globalAlpha=1;if(goal)drawGoal(cx2);if(shake>0){shake*=.85;render.canvas.style.transform=`translate(${(Math.random()-.5)*shake}px,${(Math.random()-.5)*shake}px)`;if(shake<.5){shake=0;render.canvas.style.transform=''}}if(flash&&flash.t>0){const c=render.context;c.fillStyle=`rgba(255,200,60,${flash.t*3})`;c.beginPath();c.arc(flash.x,flash.y,220*(1-flash.t*2),0,7);c.fill();flash.t-=1/60}});
+addEventListener('resize',()=>{W=wd.clientWidth;H=wd.clientHeight;render.canvas.width=W;render.canvas.height=H;render.options.width=W;render.options.height=H});
+HG.music({bpm:90,root:60,scale:[0,2,4,7,9],lead:[0,null,4,null,7,null,4,null,2,null,9,null,7,null,4,null],bass:[0,null,null,null,5,null,null,null],wave:'triangle'});HG.title({name:'PHYSICS LAB',sub:'Build, stack, throw and blow things up. Then try the challenges.',ctl:['Tap: add · Drag: throw','Stick: cursor · A: grab · B: tool'],c1:'#2b6cb0',c2:'#0b1020',c3:'#1d4ed8',game:'lab'});
+Composite.add(world,walls());Composite.add(world,mc);const sc=HG.qs.get('scene')||HG.get('lab_scene','Car Jump');(presets[sc]||presets['Car Jump'])();
+</script></body></html>
