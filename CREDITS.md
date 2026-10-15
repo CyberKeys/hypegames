@@ -25,3 +25,8 @@ Game code © Hype Games. No trademarked names, logos or characters are used.
 
 ## Fonts (SIL Open Font License 1.1, files in assets/fonts with OFL texts)
 Bungee (David Jonathan Ross), Press Start 2P (CodeMan38), Rubik (Hubert & Fischer), from github.com/google/fonts.
+
+## Hype Drive 3D (v4)
+- HDRIs: Poly Haven "Venice Sunset" and "Moonless Golf" (CC0) - polyhaven.com
+- Asphalt025C textures: ambientCG (CC0) - ambientcg.com
+- three.js r169 + addons (MIT)
