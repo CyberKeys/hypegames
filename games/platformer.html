@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hype Hopper</title><link rel="icon" href="data:,"><link rel="stylesheet" href="../style.css"></head><body>
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>Hype Hopper</title><link rel="icon" href="data:,"><link rel="stylesheet" href="../style.css"></head><body>
 <script src="../common.js"></script><script>HG.chrome('Hype Hopper')</script><script src="../vendor/phaser.min.js"></script>
 <script>
 const T=18,ROWS=14,NLEV=5;
@@ -92,5 +92,5 @@ class Play extends Phaser.Scene{constructor(){super('play')}
   this.hud.innerHTML=`WORLD ${this.lv}-${NLEV} &nbsp; ${'♥'.repeat(Math.max(0,this.lives))} &nbsp; ${String(this.score).padStart(5,'0')}<br><small>BEST ${best()}</small>`}}
 const st=document.getElementById('stage');const HUD=document.createElement('div');HUD.className='hud px';st.appendChild(HUD);const BAN=document.createElement('div');BAN.className='hud';BAN.style.cssText='top:28%;left:0;right:0;text-align:center;font-size:48px;background:none;border:0';st.appendChild(BAN);
 HG.title({name:'HYPE HOPPER',sub:'Guide Volt through five hand-built worlds. Stomp critters, grab coins, reach the flag.',ctl:['◀ ▶ move','A / ⤒ jump (hold = higher)','Start: pause'],c1:'#ff8a5c',c2:'#5a1f3a',c3:'#c2362a',game:'platformer'}).then(()=>new Phaser.Game({type:Phaser.AUTO,parent:'stage',pixelArt:true,width:st.clientWidth,height:st.clientHeight,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade',arcade:{gravity:{y:800}}},scene:[Play],banner:false}));
-HG.touchButtons([{k:'left',label:'◀',style:'left:20px;bottom:20px'},{k:'right',label:'▶',style:'left:160px;bottom:20px'},{k:'a',label:'⤒',style:'right:24px;bottom:20px;width:150px;height:150px'}]);
+HG.rotHint();HG.touchButtons([{k:'left',label:'◀',style:'left:20px;bottom:20px'},{k:'right',label:'▶',style:'left:160px;bottom:20px'},{k:'a',label:'⤒',style:'right:24px;bottom:20px;width:150px;height:150px'}]);
 </script></body></html>

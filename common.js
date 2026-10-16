@@ -15,7 +15,7 @@ function poll(){const ps=navigator.getGamepads?navigator.getGamepads():[];const 
  for(const k in s){if(s[k]&&!prev[k])press(k)}prev=s;HG.pad=s;requestAnimationFrame(poll)}
 poll();
 // Touch buttons: HG.touchButtons([{k:'left',label:'◀',style:'left:20px;bottom:20px'}])
-HG.touchButtons=list=>{const w=document.createElement('div');w.className='tbtns';list.forEach(o=>{const b=document.createElement('button');b.className='tbtn';b.textContent=o.label;b.style.cssText=o.style||'';
+HG.touchButtons=list=>{const w=document.createElement('div');w.className='tbtns';list.forEach(o=>{const b=document.createElement('button');b.className='tbtn';b.textContent=o.label;b.style.cssText=(o.style||'').replace(/(left|right|bottom):(\d+)px/g,(m,p,v)=>p+':calc('+v+'px*var(--ts) + var(--s'+p[0]+'))').replace(/(\d+)px(?!\*)/g,(m,v)=>'calc('+v+'px*var(--ts))');
  const dn=e=>{e.preventDefault();if(!HG.touch[o.k])press(o.k);HG.touch[o.k]=true},up=e=>{e.preventDefault();HG.touch[o.k]=false};
  b.addEventListener('pointerdown',dn);b.addEventListener('pointerup',up);b.addEventListener('pointerleave',up);b.addEventListener('pointercancel',up);w.appendChild(b)});document.getElementById('stage').appendChild(w)};
 // Audio: tiny procedural synth (original sounds, no external files)
@@ -66,3 +66,5 @@ document.addEventListener('DOMContentLoaded',()=>{const pb=document.getElementBy
 HG.pix=(rows,pal,scale=1)=>{const h=rows.length,w=rows[0].length,c=document.createElement('canvas');c.width=w*scale;c.height=h*scale;const x=c.getContext('2d');
  rows.forEach((r,y)=>[...r].forEach((ch,i)=>{if(pal[ch]){x.fillStyle=pal[ch];x.fillRect(i*scale,y*scale,scale,scale)}}));return c};
 HG.strip=frames=>{const w=frames[0].width,h=frames[0].height,c=document.createElement('canvas');c.width=w*frames.length;c.height=h;const x=c.getContext('2d');frames.forEach((f,i)=>x.drawImage(f,i*w,0));return c};
+addEventListener('orientationchange',()=>setTimeout(()=>dispatchEvent(new Event('resize')),250));
+HG.rotHint=()=>{const f=()=>{let e=document.querySelector('.rot');const need=innerHeight>innerWidth&&innerWidth<600;if(need&&!e&&!HG._rotX){e=document.createElement('div');e.className='rot';e.textContent='↻ Rotate for best experience';e.onclick=()=>{HG._rotX=1;e.remove()};(document.getElementById('stage')||document.body).appendChild(e)}else if(!need&&e)e.remove()};f();addEventListener('resize',f)};

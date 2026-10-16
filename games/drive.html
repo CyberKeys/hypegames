@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hype Drive 3D</title><link rel="icon" href="data:,"><link rel="stylesheet" href="../style.css">
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>Hype Drive 3D</title><link rel="icon" href="data:,"><link rel="stylesheet" href="../style.css">
 <script type="importmap">{"imports":{"three":"../vendor/three.module.min.js","three/addons/":"../vendor/jsm/"}}</script></head><body>
 <script src="../common.js"></script><script>HG.chrome('Hype Drive 3D')</script>
 <script type="module">
@@ -20,7 +20,7 @@ const THEMES=[{n:'DUSK',hdr:'sunset.hdr',exp:.9,bgI:1,sun:[30,40,-60],sunC:0xffc
   music:{bpm:118,root:57,scale:[0,2,3,5,7,8,10],lead:[0,null,3,null,7,null,5,3,0,null,3,null,8,7,5,null],bass:[0,0,null,0,5,5,null,5,3,3,null,3,4,4,null,4],drums:1,wave:'sawtooth'}},
  {n:'NIGHT',hdr:'night.hdr',exp:1.1,bgI:.6,sun:[-20,50,-40],sunC:0x8fa8ff,sunI:.35,fog:0x0a0e1a,night:true,
   music:{bpm:96,root:62,scale:[0,2,3,7,8],lead:[4,null,2,null,0,null,2,null,4,7,null,4,2,null,null,null],bass:[0,null,null,null,3,null,null,null,1,null,null,null,4,null,null,null],drums:1,wave:'triangle'}}];
-const Q={low:{pr:.75,shadow:0,post:0,trees:60,bld:30},med:{pr:1,shadow:1024,post:1,trees:120,bld:60},high:{pr:Math.min(devicePixelRatio,1.5),shadow:2048,post:2,trees:200,bld:90}};
+const Q={low:{pr:Math.min(devicePixelRatio,1)*.75,shadow:0,post:0,trees:60,bld:30},med:{pr:Math.min(devicePixelRatio,1.25),shadow:1024,post:1,trees:120,bld:60},high:{pr:Math.min(devicePixelRatio,1.5),shadow:2048,post:2,trees:200,bld:90}};
 let qSet=HG.qs.get('q')||HG.get('drive_q','auto'),qName=qSet=='auto'?'high':qSet;
 if(HG.qs.get('map'))HG.set('drive_theme',+HG.qs.get('map'));let carI=Math.min(HG.get('drive_car',0),2),thI=Math.min(HG.get('drive_theme',0),1);const unlocked=i=>HG.best('drive')>=CARS[i].need;if(!unlocked(carI))carI=0;
 // ---------- renderer ----------
@@ -135,7 +135,7 @@ function spawn(z){const l=Math.random()*3|0,r=Math.random();let m,t;
  if(r<.42){m=trafficCars[Math.random()*TCOL.length|0].clone();t='car'}else if(r<.6){m=new THREE.Mesh(coneG,coneM);m.position.y=.45;t='cone'}else if(r<.94){m=new THREE.Mesh(coinG,coinM);m.position.y=1;t='coin'}else{m=new THREE.Mesh(batG,batM);m.position.y=1;t='bat'}
  m.position.x=LANES[l];m.position.z=z;m.traverse(o=>{if(o.isMesh)o.castShadow=Q[qName].shadow>0});S.add(m);objs.push({m,t,l})}
 HG.onPress=k=>{if(state!='play'){if(k=='a'&&state=='over')reset();return}if(k=='left'&&lane>0){lane--;HG.sfx('click')}if(k=='right'&&lane<2){lane++;HG.sfx('click')}};
-HG.touchButtons([{k:'left',label:'◀',style:'left:24px;bottom:24px;width:160px;height:160px'},{k:'right',label:'▶',style:'right:24px;bottom:24px;width:160px;height:160px'}]);
+HG.rotHint();HG.touchButtons([{k:'left',label:'◀',style:'left:24px;bottom:24px;width:160px;height:160px'},{k:'right',label:'▶',style:'right:24px;bottom:24px;width:160px;height:160px'}]);
 R.domElement.addEventListener('pointerdown',()=>{if(state=='over')reset()});
 const score=()=>Math.floor(dist/10)+coins*25;
 const camPos=new THREE.Vector3(0,3.2,8),camVel=new THREE.Vector3(),look=new THREE.Vector3(0,1,-10);

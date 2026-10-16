@@ -1,8 +1,8 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hype Physics Lab</title><link rel="icon" href="data:,"><link rel="stylesheet" href="../style.css">
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>Hype Physics Lab</title><link rel="icon" href="data:,"><link rel="stylesheet" href="../style.css">
 <style>#world{background:radial-gradient(circle at 50% 0,#26304a,#121624 70%),#121624}#world canvas{background:repeating-linear-gradient(0deg,transparent 0 47px,rgba(255,255,255,.04) 47px 48px),repeating-linear-gradient(90deg,transparent 0 47px,rgba(255,255,255,.04) 47px 48px)}#tools{position:absolute;left:0;top:0;bottom:0;width:240px;background:#12151d;display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:4px;padding:6px;overflow-y:auto;z-index:6}
 #tools button{font-family:Bungee;font-size:13px;box-shadow:0 3px 0 #0b0d12;padding:6px 4px;min-height:46px;border-radius:12px;border:3px solid transparent;background:#262c3c;color:#fff}#tools button.on{border-color:#ff3d6e}#tools button.sel{outline:3px solid #fff}
 #tools h4{grid-column:1/3;margin:6px 0 0;font-size:14px;color:#99a;text-align:center}#world{position:absolute;left:240px;right:0;top:0;bottom:0}
-#cur{position:absolute;width:34px;height:34px;margin:-17px 0 0 -17px;border:3px solid #ff3d6e;border-radius:50%;pointer-events:none;z-index:7;display:none}</style></head><body>
+#cur{position:absolute;width:34px;height:34px;margin:-17px 0 0 -17px;border:3px solid #ff3d6e;border-radius:50%;pointer-events:none;z-index:7;display:none}@media (max-width:760px),(max-height:520px){#tools{width:150px;gap:4px;padding:4px;overflow:auto}#tools button{font-size:10px;min-height:34px}#tools h4{font-size:10px}#world{left:150px}#stage .hud[style*="left:240px"]{left:150px!important}}@media (max-width:500px) and (orientation:portrait){#tools{top:auto;width:auto;right:0;height:110px;grid-template-columns:repeat(6,1fr);grid-auto-rows:min-content}#tools h4{display:none}#world{left:0;bottom:110px}#stage .hud[style*="left:240px"]{left:0!important}}</style></head><body>
 <script src="../common.js"></script><script>HG.chrome('Hype Physics Lab')</script><script src="../vendor/matter.min.js"></script>
 <script>
 const st=document.getElementById('stage');st.insertAdjacentHTML('beforeend','<div id="tools"></div><div id="world"></div><div id="cur"></div>');
@@ -10,7 +10,7 @@ const HUD=document.createElement('div');HUD.className='hud';HUD.style.left='256p
 const {Engine,Render,Runner,Bodies,Body,Composite,Composites,Constraint,Mouse,MouseConstraint,Events,Query,Vector}=Matter;
 const wd=document.getElementById('world');let W=wd.clientWidth,H=wd.clientHeight;
 const engine=Engine.create({enableSleeping:true});engine.positionIterations=6;engine.velocityIterations=4;const world=engine.world;
-const render=Render.create({element:wd,engine,options:{width:W,height:H,wireframes:false,background:'transparent',pixelRatio:1}});
+const render=Render.create({element:wd,engine,options:{width:W,height:H,wireframes:false,background:'transparent',pixelRatio:Math.min(devicePixelRatio,2)}});
 Render.run(render);const runner=Runner.create();Runner.run(runner,engine);
 const MAX=260;let tool='box',grav=1,sandCount=0;
 const crate={sprite:{texture:'../assets/platformer/crate.png',xScale:1,yScale:1}};
@@ -80,7 +80,7 @@ Events.on(engine,'beforeUpdate',()=>{const dt=1/60;const[ax,ay]=HG.axes;if(ax||a
  Composite.allBodies(world).forEach(b=>{if(b.position.y>H+300||b.position.y<-800)Composite.remove(world,b)});
  HUD.innerHTML=`${TOOLS[tool]} &nbsp; <small>${count()}/${MAX} objects${bombsLeft<Infinity?' · bombs left '+bombsLeft:''}${chName?' · '+CH[chName].tip:' · tap to add, drag to throw'}</small>`});
 Events.on(render,'afterRender',()=>{const cx2=render.context;for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.l-=1/60;if(q.l<=0){parts.splice(i,1);continue}q.vy+=q.g;q.x+=q.vx;q.y+=q.vy;cx2.globalAlpha=q.l/q.m;cx2.fillStyle=q.c;cx2.beginPath();cx2.arc(q.x,q.y,q.sz,0,7);cx2.fill()}cx2.globalAlpha=1;if(goal)drawGoal(cx2);if(shake>0){shake*=.85;render.canvas.style.transform=`translate(${(Math.random()-.5)*shake}px,${(Math.random()-.5)*shake}px)`;if(shake<.5){shake=0;render.canvas.style.transform=''}}if(flash&&flash.t>0){const c=render.context;c.fillStyle=`rgba(255,200,60,${flash.t*3})`;c.beginPath();c.arc(flash.x,flash.y,220*(1-flash.t*2),0,7);c.fill();flash.t-=1/60}});
-addEventListener('resize',()=>{W=wd.clientWidth;H=wd.clientHeight;render.canvas.width=W;render.canvas.height=H;render.options.width=W;render.options.height=H});
+addEventListener('resize',()=>{W=wd.clientWidth;H=wd.clientHeight;Render.setSize?Render.setSize(render,W,H):(render.options.width=W,render.options.height=H);Render.setPixelRatio(render,Math.min(devicePixelRatio,2))});
 HG.music({bpm:90,root:60,scale:[0,2,4,7,9],lead:[0,null,4,null,7,null,4,null,2,null,9,null,7,null,4,null],bass:[0,null,null,null,5,null,null,null],wave:'triangle'});HG.title({name:'PHYSICS LAB',sub:'Build, stack, throw and blow things up. Then try the challenges.',ctl:['Tap: add · Drag: throw','Stick: cursor · A: grab · B: tool'],c1:'#2b6cb0',c2:'#0b1020',c3:'#1d4ed8',game:'lab'});
 Composite.add(world,walls());Composite.add(world,mc);const sc=HG.qs.get('scene')||HG.get('lab_scene','Car Jump');(presets[sc]||presets['Car Jump'])();
 </script></body></html>
